@@ -1,3 +1,5 @@
+from abc import abstractmethod, ABC
+
 SILVER_GRADE_THRESHOLD = 30
 GOLD_GRADE_THRESHOLD = 50
 NORMAL_GRADE = 0
@@ -23,6 +25,36 @@ WDAY_IDX = {
 }
 
 
+class PointPolicy(ABC):
+    @abstractmethod
+    def get_point(self):
+        ...
+
+
+class SpecialPointPolicy(PointPolicy):
+    def get_point(self):
+        return SPECIAL_POINTS
+
+class WeekendPointPolicy(PointPolicy):
+    def get_point(self):
+        return WEEKEND_POINTS
+
+class NormalPointPolicy(PointPolicy):
+    def get_point(self):
+        return NORMAL_POINTS
+
+class PointPolicyFactory:
+    def get_policy(self, wday):
+        if wday in SPECIAL_WDAY:
+            point_policy = SpecialPointPolicy
+        elif wday in WEEKEND_WDAY:
+            point_policy = WeekendPointPolicy
+        else:
+            point_policy = NormalPointPolicy
+
+        return point_policy()
+
+
 class Member:
     def __init__(self, id, name):
         self.id = id
@@ -41,11 +73,27 @@ class Member:
         self.weekend_attendance_cnt = 0
         self.grade = 0
 
+    def add_attendance_point(self, point):
+        self.attendance_point += point
+
+    def add_attendance_cnt(self, wday):
+        if wday in SPECIAL_WDAY:
+            self.special_attendance_cnt += 1
+        if wday in WEEKEND_WDAY:
+            self.weekend_attendance_cnt += 1
+        self.attendance_cnt_by_wday[wday] += 1
+
 
 class AttendanceManager:
-    def __init__(self):
-        self.club_members = {}
-        self.id_cnt = 0
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance:
+            return cls._instance
+        cls._instance = super(AttendanceManager, cls).__new__(cls, *args, **kwargs)
+        cls.club_members = {}
+        cls.id_cnt = 0
+        return cls._instance
 
     def _regist_member(self, name):
         if name not in self.club_members:
@@ -57,25 +105,12 @@ class AttendanceManager:
         if not member:
             return
 
-        point = self._get_point(wday)
+        point_policy = PointPolicyFactory().get_policy(wday)
+        point = point_policy.get_point()
 
-        member.attendance_cnt_by_wday[wday] += 1
-        member.attendance_point += point
+        member.add_attendance_cnt(wday)
+        member.add_attendance_point(point)
 
-        if wday in ["wednesday"]:
-            member.special_attendance_cnt += 1
-
-        if wday in ["saturday", "sunday"]:
-            member.weekend_attendance_cnt += 1
-
-    def _get_point(self, wday):
-        if wday in SPECIAL_WDAY:
-            point = SPECIAL_POINTS
-        elif wday in WEEKEND_WDAY:
-            point = WEEKEND_POINTS
-        else:
-            point = NORMAL_POINTS
-        return point
 
     def _input_file(self, list_file="attendance_weekday_500.txt"):
         try:
@@ -118,11 +153,11 @@ class AttendanceManager:
 
     def _calculate_bonus(self):
         for _name, member in self.club_members.items():
-            special_attendance_cnt = sum([member.attendance_cnt_by_wday[d] for d in SPECIAL_WDAY])
-            weekend_attendance_cnt = sum([member.attendance_cnt_by_wday[d] for d in WEEKEND_WDAY])
-            if special_attendance_cnt >= SPECIAL_BONUS_THRESHOLD:
+            # special_attendance_cnt = sum([member.attendance_cnt_by_wday[d] for d in SPECIAL_WDAY])
+            # weekend_attendance_cnt = sum([member.attendance_cnt_by_wday[d] for d in WEEKEND_WDAY])
+            if member.special_attendance_cnt >= SPECIAL_BONUS_THRESHOLD:
                 member.attendance_point += SPECIAL_BONUS_POINTS
-            if weekend_attendance_cnt >= WEEKEND_BONUS_THRESHOLD:
+            if member.weekend_attendance_cnt >= WEEKEND_BONUS_THRESHOLD:
                 member.attendance_point += WEEKEND_BONUS_POINTS
 
     def _is_valid(self, parts):
