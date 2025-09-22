@@ -1,5 +1,8 @@
 from abc import abstractmethod, ABC
 
+from matplotlib.dates import WEEKDAYS
+
+NORMAL_GRADE_THRESHOLD = 0
 SILVER_GRADE_THRESHOLD = 30
 GOLD_GRADE_THRESHOLD = 50
 NORMAL_GRADE = 0
@@ -11,7 +14,7 @@ WEEKEND_BONUS_THRESHOLD = 10
 SPECIAL_BONUS_THRESHOLD = 10
 WEEKEND_POINTS = 2
 SPECIAL_POINTS = 3
-NORMAL_POINTS = 1
+WEEKDAY_POINTS = 1
 SPECIAL_WDAY = ["wednesday"]
 WEEKEND_WDAY = ["saturday", "sunday"]
 WDAY_IDX = {
@@ -23,36 +26,6 @@ WDAY_IDX = {
     "saturday": 5,
     "sunday": 6,
 }
-
-
-class PointPolicy(ABC):
-    @abstractmethod
-    def get_point(self):
-        ...
-
-
-class SpecialPointPolicy(PointPolicy):
-    def get_point(self):
-        return SPECIAL_POINTS
-
-class WeekendPointPolicy(PointPolicy):
-    def get_point(self):
-        return WEEKEND_POINTS
-
-class NormalPointPolicy(PointPolicy):
-    def get_point(self):
-        return NORMAL_POINTS
-
-class PointPolicyFactory:
-    def get_policy(self, wday):
-        if wday in SPECIAL_WDAY:
-            point_policy = SpecialPointPolicy
-        elif wday in WEEKEND_WDAY:
-            point_policy = WeekendPointPolicy
-        else:
-            point_policy = NormalPointPolicy
-
-        return point_policy()
 
 
 class Member:
@@ -81,7 +54,85 @@ class Member:
             self.special_attendance_cnt += 1
         if wday in WEEKEND_WDAY:
             self.weekend_attendance_cnt += 1
+
         self.attendance_cnt_by_wday[wday] += 1
+
+
+class PointPolicy(ABC):
+    @abstractmethod
+    def get_point(self):
+        ...
+
+
+class SpecialPointPolicy(PointPolicy):
+    def get_point(self):
+        return SPECIAL_POINTS
+
+
+class WeekendPointPolicy(PointPolicy):
+    def get_point(self):
+        return WEEKEND_POINTS
+
+
+class WeekdayPointPolicy(PointPolicy):
+    def get_point(self):
+        return WEEKDAY_POINTS
+
+
+class PointPolicyFactory:
+    def get_policy(self, wday):
+        if wday in SPECIAL_WDAY:
+            point_policy = SpecialPointPolicy
+        elif wday in WEEKEND_WDAY:
+            point_policy = WeekendPointPolicy
+        else:
+            point_policy = WeekdayPointPolicy
+
+        return point_policy()
+
+
+class Grade(ABC):
+    @abstractmethod
+    def __init__(self):
+        self.grade_idx = None
+        self.grade_threshold = None
+
+    def get_threshold(self):
+        return self.grade_threshold
+
+
+class GoldGrade(Grade):
+    def __init__(self):
+        self.grade_idx = GOLD_GRADE
+        self.grade_threshold = GOLD_GRADE_THRESHOLD
+
+
+class SilverGrade(Grade):
+    def __init__(self):
+        self.grade_idx = SILVER_GRADE
+        self.grade_threshold = SILVER_GRADE_THRESHOLD
+
+
+class NormalGrade(Grade):
+    def __init__(self):
+        self.grade_idx = NORMAL_GRADE
+        self.grade_threshold = NORMAL_GRADE_THRESHOLD
+
+
+class GradeFactory:
+    def __init__(self):
+        self.grade_dict = {
+            GOLD_GRADE: GoldGrade(),
+            SILVER_GRADE: SilverGrade(),
+            NORMAL_GRADE: NormalGrade(),
+        }
+
+    def get_grade(self, member: Member):
+        point = member.attendance_point
+        sorted_grade = sorted(self.grade_dict.items(), key=lambda x: -x[1].get_threshold())
+        for grade in sorted_grade:
+            if point >= grade[1].get_threshold():
+                return grade[0]
 
 
 class AttendanceManager:
@@ -110,7 +161,6 @@ class AttendanceManager:
 
         member.add_attendance_cnt(wday)
         member.add_attendance_point(point)
-
 
     def _input_file(self, list_file="attendance_weekday_500.txt"):
         try:
@@ -144,17 +194,10 @@ class AttendanceManager:
 
     def _calculate_grade(self):
         for _name, member in self.club_members.items():
-            if member.attendance_point >= GOLD_GRADE_THRESHOLD:
-                member.grade = GOLD_GRADE
-            elif member.attendance_point >= SILVER_GRADE_THRESHOLD:
-                member.grade = SILVER_GRADE
-            else:
-                member.grade = NORMAL_GRADE
+            member.grade = GradeFactory().get_grade(member)
 
     def _calculate_bonus(self):
         for _name, member in self.club_members.items():
-            # special_attendance_cnt = sum([member.attendance_cnt_by_wday[d] for d in SPECIAL_WDAY])
-            # weekend_attendance_cnt = sum([member.attendance_cnt_by_wday[d] for d in WEEKEND_WDAY])
             if member.special_attendance_cnt >= SPECIAL_BONUS_THRESHOLD:
                 member.attendance_point += SPECIAL_BONUS_POINTS
             if member.weekend_attendance_cnt >= WEEKEND_BONUS_THRESHOLD:
