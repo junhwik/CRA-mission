@@ -94,8 +94,7 @@ class PointPolicyFactory:
 class Grade(ABC):
     @abstractmethod
     def __init__(self):
-        self.grade_idx = None
-        self.grade_threshold = None
+        ...
 
     def get_threshold(self):
         return self.grade_threshold
@@ -146,6 +145,14 @@ class AttendanceManager:
         cls.id_cnt = 0
         return cls._instance
 
+    def __init__(self):
+        if not self._instance:
+            self.club_members = {}
+            self.id_cnt = 0
+
+    def clear(cls):
+        cls._instance = None
+
     def _regist_member(self, name):
         if name not in self.club_members:
             self.id_cnt += 1
@@ -153,8 +160,6 @@ class AttendanceManager:
 
     def _add_points(self, name, wday):
         member = self.club_members.get(name, None)
-        if not member:
-            return
 
         point_policy = PointPolicyFactory().get_policy(wday)
         point = point_policy.get_point()
@@ -168,6 +173,7 @@ class AttendanceManager:
                 attendance_list = f.readlines()
         except FileNotFoundError:
             print("파일을 찾을 수 없습니다.")
+            attendance_list = None
         return attendance_list
 
     def _print_low_attendance(self):
