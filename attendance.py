@@ -23,37 +23,50 @@ WDAY_IDX = {
 }
 
 
+class Member:
+    def __init__(self, id, name):
+        self.id = id
+        self.name = name
+        self.attendance_cnt_by_wday = {
+            "monday": 0,
+            "tuesday": 0,
+            "wednesday": 0,
+            "thursday": 0,
+            "friday": 0,
+            "saturday": 0,
+            "sunday": 0,
+        }
+        self.attendance_point = 0
+        self.special_attendance_cnt = 0
+        self.weekend_attendance_cnt = 0
+        self.grade = 0
+
+
 class AttendanceManager:
     def __init__(self):
-        self.members_id = {}
+        self.club_members = {}
         self.id_cnt = 0
-        self.attendance_cnt_by_wday = [[0] * 100 for _ in range(100)]
-        self.attendance_points = [0] * 100
-        self.grade = [0] * 100
-        self.names = [''] * 100
-        self.wednesday_attendance_cnts = [0] * 100
-        self.weekend_attendance_cnts = [0] * 100
 
     def _regist_member(self, name):
-        if name not in self.members_id:
+        if name not in self.club_members:
             self.id_cnt += 1
-            self.members_id[name] = self.id_cnt
-            self.names[self.id_cnt] = name
+            self.club_members[name] = Member(self.id_cnt, name)
 
     def _add_points(self, name, wday):
-        id = self.members_id.get(name, None)
+        member = self.club_members.get(name, None)
+        if not member:
+            return
 
         point = self._get_point(wday)
-        index = WDAY_IDX[wday]
 
-        self.attendance_cnt_by_wday[id][index] += 1
-        self.attendance_points[id] += point
+        member.attendance_cnt_by_wday[wday] += 1
+        member.attendance_point += point
 
         if wday in ["wednesday"]:
-            self.wednesday_attendance_cnts[id] += 1
+            member.special_attendance_cnt += 1
 
         if wday in ["saturday", "sunday"]:
-            self.weekend_attendance_cnts[id] += 1
+            member.weekend_attendance_cnt += 1
 
     def _get_point(self, wday):
         if wday in SPECIAL_WDAY:
@@ -75,48 +88,47 @@ class AttendanceManager:
     def _print_low_attendance(self):
         print("\nRemoved player")
         print("==============")
-        for i in range(1, self.id_cnt + 1):
-            if self.grade[i] in (GOLD_GRADE, SILVER_GRADE):
+        for _name, member in self.club_members.items():
+            if member.grade in (GOLD_GRADE, SILVER_GRADE):
                 continue
-            if self.wednesday_attendance_cnts[i] != 0:
+            if member.special_attendance_cnt != 0:
                 continue
-            if self.weekend_attendance_cnts[i] != 0:
+            if member.weekend_attendance_cnt != 0:
                 continue
-            print(self.names[i])
+            print(member.name)
 
     def _print_result(self):
-        for i in range(1, self.id_cnt + 1):
-            print(f"NAME : {self.names[i]}, POINT : {self.attendance_points[i]}, GRADE : ", end="")
-            if self.grade[i] == GOLD_GRADE:
+        for _name, member in self.club_members.items():
+            print(f"NAME : {member.name}, POINT : {member.attendance_point}, GRADE : ", end="")
+            if member.grade == GOLD_GRADE:
                 print("GOLD")
-            elif self.grade[i] == SILVER_GRADE:
+            elif member.grade == SILVER_GRADE:
                 print("SILVER")
             else:
                 print("NORMAL")
 
     def _calculate_grade(self):
-        for i in range(1, self.id_cnt + 1):
-            if self.attendance_points[i] >= GOLD_GRADE_THRESHOLD:
-                self.grade[i] = GOLD_GRADE
-            elif self.attendance_points[i] >= SILVER_GRADE_THRESHOLD:
-                self.grade[i] = SILVER_GRADE
+        for _name, member in self.club_members.items():
+            if member.attendance_point >= GOLD_GRADE_THRESHOLD:
+                member.grade = GOLD_GRADE
+            elif member.attendance_point >= SILVER_GRADE_THRESHOLD:
+                member.grade = SILVER_GRADE
             else:
-                self.grade[i] = NORMAL_GRADE
+                member.grade = NORMAL_GRADE
 
     def _calculate_bonus(self):
-        for i in range(1, self.id_cnt + 1):
-            special_attendance_cnt = sum([self.attendance_cnt_by_wday[i][WDAY_IDX[d]] for d in SPECIAL_WDAY])
-            weekend_attendance_cnt = sum([self.attendance_cnt_by_wday[i][WDAY_IDX[d]] for d in WEEKEND_WDAY])
+        for _name, member in self.club_members.items():
+            special_attendance_cnt = sum([member.attendance_cnt_by_wday[d] for d in SPECIAL_WDAY])
+            weekend_attendance_cnt = sum([member.attendance_cnt_by_wday[d] for d in WEEKEND_WDAY])
             if special_attendance_cnt >= SPECIAL_BONUS_THRESHOLD:
-                self.attendance_points[i] += SPECIAL_BONUS_POINTS
+                member.attendance_point += SPECIAL_BONUS_POINTS
             if weekend_attendance_cnt >= WEEKEND_BONUS_THRESHOLD:
-                self.attendance_points[i] += WEEKEND_BONUS_POINTS
-
+                member.attendance_point += WEEKEND_BONUS_POINTS
 
     def _is_valid(self, parts):
         if len(parts) != 2:
             return False
-        if parts[1].lower() not in WDAY_IDX.keys():
+        if parts[1].lower() not in WDAY_IDX:
             return False
 
         return True
