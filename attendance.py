@@ -1,104 +1,125 @@
-members_id = {}
-id_cnt = 0
+class AttendanceManager:
+    def __init__(self):
+        self.members_id = {}
+        self.id_cnt = 0
+        # dat[사용자ID][요일]
+        self.attendance_cnt_by_wday = [[0] * 100 for _ in range(100)]
+        self.attendance_points = [0] * 100
+        self.grade = [0] * 100
+        self.names = [''] * 100
+        self.wednesday_attendance_cnts = [0] * 100
+        self.weekend_attendance_cnts = [0] * 100
 
-# dat[사용자ID][요일]
-attendance_cnt_by_wday = [[0] * 100 for _ in range(100)]
-attendance_points = [0] * 100
-grade = [0] * 100
-names = [''] * 100
-wednesday_attendance_cnts = [0] * 100
-weekend_attendance_cnts = [0] * 100
+        self.special_wday = ["wednesday"]
+        self.weekend_wday = ["saturday", "sunday"]
 
+    def _regist_member(self, name):
+        if name not in self.members_id:
+            self.id_cnt += 1
+            self.members_id[name] = self.id_cnt
+            self.names[self.id_cnt] = name
 
-def input2(name, wday):
-    global id_cnt
+    def _add_points(self, name, wday):
+        id = self.members_id[name]
 
-    if name not in members_id:
-        id_cnt += 1
-        members_id[name] = id_cnt
-        names[id_cnt] = name
+        index, point = self._get_point(wday)
 
-    add_points(name, wday)
+        self.attendance_cnt_by_wday[id][index] += 1
+        self.attendance_points[id] += point
 
+        if wday in ["wednesday"]:
+            self.wednesday_attendance_cnts[id] += 1
 
-def add_points(name, wday):
-    id2 = members_id[name]
+        if wday in ["saturday", "sunday"]:
+            self.weekend_attendance_cnts[id] += 1
 
-    if wday == "monday":
-        index = 0
-        point = 1
-    elif wday == "tuesday":
-        index = 1
-        point = 1
-    elif wday == "wednesday":
-        index = 2
-        point = 3
-    elif wday == "thursday":
-        index = 3
-        point = 1
-    elif wday == "friday":
-        index = 4
-        point = 1
-    elif wday == "saturday":
-        index = 5
-        point = 2
-    elif wday == "sunday":
-        index = 6
-        point = 2
+    def _get_point(self, wday) -> tuple[int, int]:
+        if wday == "monday":
+            index = 0
+            point = 1
+        elif wday == "tuesday":
+            index = 1
+            point = 1
+        elif wday == "wednesday":
+            index = 2
+            point = 3
+        elif wday == "thursday":
+            index = 3
+            point = 1
+        elif wday == "friday":
+            index = 4
+            point = 1
+        elif wday == "saturday":
+            index = 5
+            point = 2
+        elif wday == "sunday":
+            index = 6
+            point = 2
+        return index, point
 
-    attendance_cnt_by_wday[id2][index] += 1
-    attendance_points[id2] += point
+    def _input_file(self, list_file="attendance_weekday_500.txt"):
+        try:
+            with open(list_file, encoding='utf-8') as f:
+                attendance_list = f.readlines()
+        except FileNotFoundError:
+            print("파일을 찾을 수 없습니다.")
+        return attendance_list
 
-    if wday in ["wednesday"]:
-        wednesday_attendance_cnts[id2] += 1
+    def _print_low_attendance(self):
+        for i in range(1, self.id_cnt + 1):
+            if self.grade[i] in (1, 2):
+                continue
+            if self.wednesday_attendance_cnts[i] != 0:
+                continue
+            if self.weekend_attendance_cnts[i] != 0:
+                continue
+            print(self.names[i])
 
-    if wday in ["saturday", "sunday"]:
-        weekend_attendance_cnts[id2] += 1
+    def _print_result(self):
+        for i in range(1, self.id_cnt + 1):
+            print(f"NAME : {self.names[i]}, POINT : {self.attendance_points[i]}, GRADE : ", end="")
+            if self.grade[i] == 1:
+                print("GOLD")
+            elif self.grade[i] == 2:
+                print("SILVER")
+            else:
+                print("NORMAL")
+        print("\nRemoved player")
+        print("==============")
 
+    def _calculate_grade(self):
+        for i in range(1, self.id_cnt + 1):
+            if self.attendance_cnt_by_wday[i][2] > 9:
+                self.attendance_points[i] += 10
+            if self.attendance_cnt_by_wday[i][5] + self.attendance_cnt_by_wday[i][6] > 9:
+                self.attendance_points[i] += 10
 
-def input_file(list_file="attendance_weekday_500.txt"):
-    try:
-        with open(list_file, encoding='utf-8') as f:
-            attendance_list = f.readlines()
-    except FileNotFoundError:
-        print("파일을 찾을 수 없습니다.")
-    return attendance_list
+            if self.attendance_points[i] >= 50:
+                self.grade[i] = 1
+            elif self.attendance_points[i] >= 30:
+                self.grade[i] = 2
+            else:
+                self.grade[i] = 0
 
+    def analyze(self, attendance_list=None):
 
-def analyze_attendance(attendance_list: list[str]):
-    for line in attendance_list:
-        parts = line.strip().split()
-        if len(parts) == 2:
-            input2(parts[0], parts[1])
+        if attendance_list is None:
+            attendance_list = self._input_file()
 
-    for i in range(1, id_cnt + 1):
-        if attendance_cnt_by_wday[i][2] > 9:
-            attendance_points[i] += 10
-        if attendance_cnt_by_wday[i][5] + attendance_cnt_by_wday[i][6] > 9:
-            attendance_points[i] += 10
+        for line in attendance_list:
+            parts = line.strip().split()
+            if len(parts) != 2:
+                continue
+            name = parts[0]
+            wday = parts[1]
+            self._regist_member(name)
+            self._add_points(name, wday)
 
-        if attendance_points[i] >= 50:
-            grade[i] = 1
-        elif attendance_points[i] >= 30:
-            grade[i] = 2
-        else:
-            grade[i] = 0
-
-        print(f"NAME : {names[i]}, POINT : {attendance_points[i]}, GRADE : ", end="")
-        if grade[i] == 1:
-            print("GOLD")
-        elif grade[i] == 2:
-            print("SILVER")
-        else:
-            print("NORMAL")
-
-    print("\nRemoved player")
-    print("==============")
-    for i in range(1, id_cnt + 1):
-        if grade[i] not in (1, 2) and wednesday_attendance_cnts[i] == 0 and weekend_attendance_cnts[i] == 0:
-            print(names[i])
+        self._calculate_grade()
+        self._print_result()
+        self._print_low_attendance()
 
 
 if __name__ == "__main__":
-    attendance_list = input_file()
-    analyze_attendance(attendance_list)
+    attendance_manager = AttendanceManager()
+    attendance_manager.analyze()
