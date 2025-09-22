@@ -52,7 +52,8 @@ def input2(w, wk):
 
 def input_file():
     try:
-        with open("attendance_weekday_500.txt", encoding='utf-8') as f:
+        attendance_list = "attendance_weekday_500.txt"
+        with open(attendance_list, encoding='utf-8') as f:
             for _ in range(500):
                 line = f.readline()
                 if not line:
