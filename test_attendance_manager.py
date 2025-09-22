@@ -1,6 +1,6 @@
 import pytest
 from attendance import AttendanceManager
-import subprocess
+
 
 @pytest.fixture
 def attendance_manager():
@@ -17,6 +17,7 @@ def test_print_result(capsys, attendance_manager):
     captured = capsys.readouterr()
 
     assert captured.out == expected
+
 
 def test_print_singleton_reset(capsys, attendance_manager):
     attendance_manager.analyze()
@@ -42,7 +43,6 @@ def test_valid_attendance_history_length(attendance_manager):
 
 
 def test_valid_attendance_history_weekday(attendance_manager):
-
     test_string = "invalid weekday"
     test_parts = test_string.split()
     assert attendance_manager._is_valid(test_parts) == False
@@ -52,4 +52,3 @@ def test_valid_attendance_skip(mocker, attendance_manager):
     mocker.patch('attendance.AttendanceManager._is_valid', return_value=False)
     attendance_manager.analyze()
     assert len(attendance_manager.club_members) == 0
-
