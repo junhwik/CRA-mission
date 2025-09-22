@@ -27,7 +27,6 @@ class AttendanceManager:
     def __init__(self):
         self.members_id = {}
         self.id_cnt = 0
-        # dat[사용자ID][요일]
         self.attendance_cnt_by_wday = [[0] * 100 for _ in range(100)]
         self.attendance_points = [0] * 100
         self.grade = [0] * 100
@@ -42,7 +41,7 @@ class AttendanceManager:
             self.names[self.id_cnt] = name
 
     def _add_points(self, name, wday):
-        id = self.members_id[name]
+        id = self.members_id.get(name, None)
 
         point = self._get_point(wday)
         index = WDAY_IDX[wday]
@@ -56,7 +55,7 @@ class AttendanceManager:
         if wday in ["saturday", "sunday"]:
             self.weekend_attendance_cnts[id] += 1
 
-    def _get_point(self, wday) -> tuple[int, int]:
+    def _get_point(self, wday):
         if wday in SPECIAL_WDAY:
             point = SPECIAL_POINTS
         elif wday in WEEKEND_WDAY:
@@ -74,6 +73,8 @@ class AttendanceManager:
         return attendance_list
 
     def _print_low_attendance(self):
+        print("\nRemoved player")
+        print("==============")
         for i in range(1, self.id_cnt + 1):
             if self.grade[i] in (GOLD_GRADE, SILVER_GRADE):
                 continue
@@ -92,10 +93,17 @@ class AttendanceManager:
                 print("SILVER")
             else:
                 print("NORMAL")
-        print("\nRemoved player")
-        print("==============")
 
     def _calculate_grade(self):
+        for i in range(1, self.id_cnt + 1):
+            if self.attendance_points[i] >= GOLD_GRADE_THRESHOLD:
+                self.grade[i] = GOLD_GRADE
+            elif self.attendance_points[i] >= SILVER_GRADE_THRESHOLD:
+                self.grade[i] = SILVER_GRADE
+            else:
+                self.grade[i] = NORMAL_GRADE
+
+    def _calculate_bonus(self):
         for i in range(1, self.id_cnt + 1):
             special_attendance_cnt = sum([self.attendance_cnt_by_wday[i][WDAY_IDX[d]] for d in SPECIAL_WDAY])
             weekend_attendance_cnt = sum([self.attendance_cnt_by_wday[i][WDAY_IDX[d]] for d in WEEKEND_WDAY])
@@ -104,12 +112,14 @@ class AttendanceManager:
             if weekend_attendance_cnt >= WEEKEND_BONUS_THRESHOLD:
                 self.attendance_points[i] += WEEKEND_BONUS_POINTS
 
-            if self.attendance_points[i] >= GOLD_GRADE_THRESHOLD:
-                self.grade[i] = GOLD_GRADE
-            elif self.attendance_points[i] >= SILVER_GRADE_THRESHOLD:
-                self.grade[i] = SILVER_GRADE
-            else:
-                self.grade[i] = NORMAL_GRADE
+
+    def _is_valid(self, parts):
+        if len(parts) != 2:
+            return False
+        if parts[1].lower() not in WDAY_IDX.keys():
+            return False
+
+        return True
 
     def analyze(self, attendance_list=None):
 
@@ -118,13 +128,14 @@ class AttendanceManager:
 
         for line in attendance_list:
             parts = line.strip().split()
-            if len(parts) != 2:
+            if not self._is_valid(parts):
                 continue
-            name = parts[0]
-            wday = parts[1]
+            name = parts[0].capitalize()
+            wday = parts[1].lower()
             self._regist_member(name)
             self._add_points(name, wday)
 
+        self._calculate_bonus()
         self._calculate_grade()
         self._print_result()
         self._print_low_attendance()
